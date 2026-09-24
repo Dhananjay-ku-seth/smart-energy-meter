@@ -139,3 +139,6 @@ footer { text-align: center; color: var(--dim); font-size: 11.5px; margin-top: 1
 .load-del { background: transparent; border: none; color: var(--dim); cursor: pointer; font-size: 12px; padding: 2px 4px; border-radius: 4px; }
 .load-del:hover { color: #f43f5e; }
 .load-del.confirm { color: #fff; background: #f43f5e; font-size: 10.5px; padding: 3px 6px; font-weight: 600; }
+
+.auth-link { background: none; border: 0; color: inherit; opacity: .7; cursor: pointer; font-size: 12px; text-decoration: underline; padding: 2px 0; align-self: flex-start; }
+.auth-link:hover { opacity: 1; }

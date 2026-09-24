@@ -63,6 +63,9 @@ export default function App() {
   const { isPro } = useProfile();
   const [appliances, setAppliances] = useState<Appliance[]>(() => DEFAULT_APPLIANCES.map((a) => ({ ...a })));
   const [meter, setMeter] = useState<MeterState>(() => initMeter());
+  // Latest meter state, readable inside the animation loop so updates stay free of side effects.
+  const meterRef = useRef<MeterState>(meter);
+  meterRef.current = meter;
   const [event, setEvent] = useState<GridEvent>(null);
   const [speed, setSpeed] = useState(60);
   const [running, setRunning] = useState(true);
@@ -89,16 +92,15 @@ export default function App() {
       lastFrameRef.current = now;
       const dt = (realDeltaMs / 1000) * speed;
 
-      setMeter((prev) => {
-        const result = stepMeter(prev, appliances, event, dt);
-        setLive({ voltage: result.voltage, currentA: result.currentA, realW: result.realW, apparentVa: result.apparentVa, pf: result.pf });
-        if (result.tripNow) pushLog(`Breaker tripped — ${result.causeCurrentA.toFixed(1)}A exceeds ${BREAKER_AMPS}A rating`, "critical", result.next.time);
-        if (now - lastSampleRef.current > 150) {
-          lastSampleRef.current = now;
-          historyRef.current = [...historyRef.current, { power: result.realW, voltage: result.voltage }].slice(-400);
-        }
-        return result.next;
-      });
+      const result = stepMeter(meterRef.current, appliances, event, dt);
+      meterRef.current = result.next;
+      setMeter(result.next);
+      setLive({ voltage: result.voltage, currentA: result.currentA, realW: result.realW, apparentVa: result.apparentVa, pf: result.pf });
+      if (result.tripNow) pushLog(`Breaker tripped — ${result.causeCurrentA.toFixed(1)}A exceeds ${BREAKER_AMPS}A rating`, "critical", result.next.time);
+      if (now - lastSampleRef.current > 150) {
+        lastSampleRef.current = now;
+        historyRef.current = [...historyRef.current, { power: result.realW, voltage: result.voltage }].slice(-400);
+      }
       forceTick((n) => n + 1);
       raf = requestAnimationFrame(loop);
     };
@@ -127,7 +129,9 @@ export default function App() {
   }
 
   function resetBreaker() {
-    setMeter((m) => ({ ...m, tripped: false, overCurrentSince: null }));
+    const reset = { ...meterRef.current, tripped: false, overCurrentSince: null };
+    meterRef.current = reset;
+    setMeter(reset);
     pushLog("Breaker manually reset", "info", meter.time);
   }
 
