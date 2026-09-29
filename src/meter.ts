@@ -31,10 +31,15 @@ export function initMeter(): MeterState {
 }
 
 // Real power (W), apparent power (VA), and overall power factor from the appliances currently on.
+// Household loads (motors, compressors, ballasts, transformers) are lagging, so their reactive
+// powers add directly; the combined apparent power is the Pythagorean sum sqrt(P^2 + Q^2), not the
+// arithmetic sum of each appliance's own S = W/pf. Summing S directly overstates total apparent
+// power whenever appliances have different power factors — it's only exact when every pf matches.
 export function computePower(appliances: Appliance[]): { realW: number; apparentVa: number; pf: number } {
   const on = appliances.filter((a) => a.on);
   const realW = on.reduce((s, a) => s + a.watts, 0);
-  const apparentVa = on.reduce((s, a) => s + a.watts / a.pf, 0);
+  const reactiveVar = on.reduce((s, a) => s + a.watts * Math.tan(Math.acos(a.pf)), 0);
+  const apparentVa = Math.hypot(realW, reactiveVar);
   const pf = apparentVa > 0 ? realW / apparentVa : 1;
   return { realW, apparentVa, pf };
 }

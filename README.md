@@ -4,7 +4,7 @@
 
 Part of the [LabBench](https://labbench-hub.vercel.app/) suite of interactive engineering tools.
 
-**Live demo:** _add your Vercel URL here_
+**Live demo:** https://smart-energy-meter-pink.vercel.app/
 
 ## What it does
 
@@ -15,6 +15,8 @@ Simulates a single-phase household service (230V/50Hz, India) fed by 7 toggleabl
 - **Breaker-trip logic** — the modeled 20A main breaker trips if current stays over its rating for more than 2 seconds, cutting all load until manually reset — real overcurrent-protection behavior, not just a warning label.
 - **Grid disturbance buttons** — manually trigger a voltage sag, a voltage swell, or a frequency dip (simulated generator strain) to see how the meter's alerts and charts respond, with an exponential frequency-recovery curve once the event ends.
 - **Live kWh billing** — energy is integrated from actual instantaneous power (`kWh += (W/1000)·(dt/3600)`), multiplied by a ₹7.5/unit tariff for a running estimated bill.
+- Hover either chart to read the exact power/voltage at that moment, export either as PNG, and watch
+  the dashboard visibly flicker the instant the breaker trips.
 
 ## LabBench Pro
 

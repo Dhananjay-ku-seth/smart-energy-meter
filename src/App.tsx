@@ -78,6 +78,8 @@ export default function App() {
   const lastSampleRef = useRef(0);
   const powerCanvasRef = useRef<HTMLCanvasElement>(null);
   const voltageCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [outage, setOutage] = useState(false);
+  const [hoverSample, setHoverSample] = useState<{ chart: "power" | "voltage"; sample: Sample } | null>(null);
 
   function pushLog(text: string, level: LogEntry["level"], t: number) {
     setLog((l) => [{ t, text, level }, ...l].slice(0, 12));
@@ -96,7 +98,11 @@ export default function App() {
       meterRef.current = result.next;
       setMeter(result.next);
       setLive({ voltage: result.voltage, currentA: result.currentA, realW: result.realW, apparentVa: result.apparentVa, pf: result.pf });
-      if (result.tripNow) pushLog(`Breaker tripped — ${result.causeCurrentA.toFixed(1)}A exceeds ${BREAKER_AMPS}A rating`, "critical", result.next.time);
+      if (result.tripNow) {
+        pushLog(`Breaker tripped — ${result.causeCurrentA.toFixed(1)}A exceeds ${BREAKER_AMPS}A rating`, "critical", result.next.time);
+        setOutage(true);
+        setTimeout(() => setOutage(false), 700);
+      }
       if (now - lastSampleRef.current > 150) {
         lastSampleRef.current = now;
         historyRef.current = [...historyRef.current, { power: result.realW, voltage: result.voltage }].slice(-400);
@@ -112,6 +118,28 @@ export default function App() {
     drawChart(powerCanvasRef.current, historyRef.current, "power", 0, 6500, "#2dd4bf");
     drawChart(voltageCanvasRef.current, historyRef.current, "voltage", 150, 270, voltageColor(live.voltage));
   });
+
+  function chartHover(e: React.MouseEvent<HTMLCanvasElement>, chart: "power" | "voltage") {
+    const canvas = e.currentTarget;
+    const samples = historyRef.current;
+    if (samples.length < 2) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+    const idx = Math.max(0, Math.min(samples.length - 1, Math.round((x / canvas.width) * (samples.length - 1))));
+    setHoverSample({ chart, sample: samples[idx] });
+  }
+
+  function exportChartPng(canvas: HTMLCanvasElement | null, filename: string) {
+    if (!canvas) return;
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+  }
 
   function toggleAppliance(id: string) {
     setAppliances((as) => as.map((a) => a.id === id ? { ...a, on: !a.on } : a));
@@ -177,7 +205,7 @@ export default function App() {
         </div>
       )}
 
-      <div className="panel">
+      <div className={"panel" + (outage ? " outage" : "")}>
         <div className="row">
           <button className={"ghost" + (running ? " on" : "")} onClick={() => setRunning((r) => !r)}>
             {running ? "⏸ Pause" : "▶ Run"}
@@ -241,12 +269,26 @@ export default function App() {
 
         <div className="charts-grid">
           <div className="chart-box">
-            <span className="chart-label">Real Power (0–6500W)</span>
-            <canvas ref={powerCanvasRef} width={460} height={110} />
+            <div className="chart-head">
+              <span className="chart-label">Real Power (0–6500W)</span>
+              <button className="chart-export" onClick={() => exportChartPng(powerCanvasRef.current, "power-chart.png")}>⬇ PNG</button>
+            </div>
+            <canvas ref={powerCanvasRef} width={460} height={110}
+              onMouseMove={(e) => chartHover(e, "power")} onMouseLeave={() => setHoverSample(null)} />
+            <div className="chart-readout">
+              {hoverSample?.chart === "power" && <>At cursor: <b>{(hoverSample.sample.power / 1000).toFixed(2)} kW</b></>}
+            </div>
           </div>
           <div className="chart-box">
-            <span className="chart-label">Voltage (150–270V)</span>
-            <canvas ref={voltageCanvasRef} width={460} height={110} />
+            <div className="chart-head">
+              <span className="chart-label">Voltage (150–270V)</span>
+              <button className="chart-export" onClick={() => exportChartPng(voltageCanvasRef.current, "voltage-chart.png")}>⬇ PNG</button>
+            </div>
+            <canvas ref={voltageCanvasRef} width={460} height={110}
+              onMouseMove={(e) => chartHover(e, "voltage")} onMouseLeave={() => setHoverSample(null)} />
+            <div className="chart-readout">
+              {hoverSample?.chart === "voltage" && <>At cursor: <b>{hoverSample.sample.voltage.toFixed(0)} V</b></>}
+            </div>
           </div>
         </div>
 
